@@ -1,0 +1,7 @@
+ENUM_EVENT = "event"
+ENUM_GLOBALMAP = "globalmap"
+ENUM_ITEM = "item"
+ENUM_LOCALMAP = "localmap"
+ENUM_ROLEHERO = "rolehero"
+ENUM_ROLEMOB = "rolemob"
+ENUM_SKILL = "skill"

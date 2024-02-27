@@ -1,0 +1,6 @@
+"""弱点 风地水火0,1,2,3"""
+
+ENUM_WIND = 0
+ENUM_EARTH = 1
+ENUM_WATER = 2
+ENUM_FIRE = 3
