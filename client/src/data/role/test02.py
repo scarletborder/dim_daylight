@@ -1,6 +1,10 @@
-from storage.main_db import Main_DB
-from constant.battle.enum_role_value import EnumRoleValue
-from constant.battle.enum_event import EnumBattleEvent
+"""
+id:2
+"""
+
+from src.storage.main_db import Main_DB
+from src.constant.battle.enum_role_value import EnumRoleValue
+from src.constant.battle.enum_event import EnumBattleEvent
 
 role_data = {}
 
@@ -21,5 +25,8 @@ role_data["value_content"] = {
     EnumRoleValue.ENUM_DEFENSE_SPEED: 15,
 }
 
-
+role_data["role_view_detail"] = {
+    "ratio_of_height": 0.06,
+    "image_path": "resource/sprite_5.png",
+}
 Main_DB.write_bulk_data("role_table", 2, role_data)

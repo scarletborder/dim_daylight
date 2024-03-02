@@ -1,9 +1,9 @@
 import pygame
-from storage.myLite_data_base import MyLiteDataBase
+from src.storage.myLite_data_base import MyLiteDataBase
 from src.view.battle.ele.battle_viewer import BattleViewer
 from src.view.battle.ele.abstract_view_element import AbstractViewElement
 from src.view.battle.ele.bulk_icon import BulkIcon
-from model.battle.battle import Battle
+from src.model.battle.battle import Battle
 from src.utils.view.text_span import render_text_within_rect
 
 

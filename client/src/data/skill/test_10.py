@@ -5,8 +5,6 @@ from src.constant.battle.enum_event import EnumBattleEvent
 from src.constant.enum_modify_calculate import EnumModifyCalculate
 from src.model.battle.battle import Battle
 
-data = {}
-
 
 def cast_func(caster_quid, target_quid, battle: Battle, **kwargs):
     offset = round(
@@ -25,6 +23,7 @@ def cast_func(caster_quid, target_quid, battle: Battle, **kwargs):
 def display_func(caster_quid, target_quid, battle: Battle): ...
 
 
+data = {}
 data["name"] = "测试技能10-普通攻击"
 data["description"] = "mob普通攻击，造成1.0倍攻击伤害，防御效果正常"
 data["range_method"] = MELEE

@@ -5,6 +5,8 @@ from src.constant.battle.enum_event import EnumBattleEvent
 from src.constant.enum_modify_calculate import EnumModifyCalculate
 from src.model.battle.battle import Battle
 
+from src.utils.battle.calculate_pos import position_calc
+
 data = {}
 
 
@@ -23,8 +25,10 @@ def cast_func(caster_quid, target_quid, battle: Battle):
     )
     # T字形目标
     ## 如果有左边的对象
-    if target_quid % 5 != 0 and ((target_quid - 1) in battle.layout is True):
-        secondary_quid = target_quid - 1
+    if (secondary_quid := position_calc.left(target_quid)) is not None and (
+        (secondary_quid) in battle.layout is True
+        and battle.is_dead_by_quid(secondary_quid) is False
+    ):
         offset = round(
             battle.layout[caster_quid].value_dict.get(EnumRoleValue.ENUM_ATTACK, 0)
             * (
@@ -42,7 +46,10 @@ def cast_func(caster_quid, target_quid, battle: Battle):
             EnumModifyCalculate.ENUM_DEC,
         )
     ## 如果有右边的对象
-    if (target_quid + 1) % 5 != 0 and ((target_quid + 1) in battle.layout):
+    if (secondary_quid := position_calc.right(target_quid)) is not None and (
+        (secondary_quid) in battle.layout is True
+        and battle.is_dead_by_quid(secondary_quid) is False
+    ):
         secondary_quid = target_quid + 1
         offset = round(
             battle.layout[caster_quid].value_dict.get(EnumRoleValue.ENUM_ATTACK, 0)
@@ -62,7 +69,10 @@ def cast_func(caster_quid, target_quid, battle: Battle):
         )
 
     ## 如果有前方的对象
-    if (0 <= target_quid <= 4) and ((target_quid + 5) in battle.layout):
+    if (secondary_quid := position_calc.front(target_quid)) is not None and (
+        (secondary_quid) in battle.layout is True
+        and battle.is_dead_by_quid(secondary_quid) is False
+    ):
         secondary_quid = target_quid + 5
         offset = round(
             battle.layout[caster_quid].value_dict.get(EnumRoleValue.ENUM_ATTACK, 0)

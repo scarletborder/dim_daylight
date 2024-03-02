@@ -1,5 +1,5 @@
 import pygame
-from storage.myLite_data_base import MyLiteDataBase
+from src.storage.myLite_data_base import MyLiteDataBase
 
 """用于返回所有诸如状态条，buff磁贴的修改后图片"""
 

@@ -11,3 +11,5 @@ class EnumBattleStage(IntEnum):
     READY_DEFENSE = 0x0011
     # 演示技能:自己的回合，别人回合回到原来的位置
     GENERAL_CAST = 0x0021
+    # 等待阶段
+    WAIT_FOR_PLAYER = 0x0041

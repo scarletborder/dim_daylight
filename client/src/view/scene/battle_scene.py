@@ -38,6 +38,10 @@ class BattleScene(AbstractScene):
         self.fps = fps
         self.battle_status_code = 0
 
+        # 显示细节
+        self.view_context = dict()
+        self.update_rects: list[pygame.Rect] = []
+
         # 初始化角色视图
         self.ele_battle_roles: list[ViewBattleRole] = []
         for quid, t_battle_role in battle.layout.items():
@@ -45,28 +49,25 @@ class BattleScene(AbstractScene):
                 ViewBattleRole(quid, t_battle_role.role_id, resolution, db, screen)
             )
 
-        for ele_view_role in self.ele_battle_roles:
-            ele_view_role.load_image()
-
         # 初始化reminder
         self.ele_reminder = ViewBattleReminder(resolution)
+        self.update_rects.append(self.ele_reminder.frame_rect)
 
         # 初始化info
         self.ele_info_bar = ViewBattleInfoBar(resolution)
+        self.update_rects.append(self.ele_info_bar.frame_rect)
 
         # 初始化log
         self.ele_log_bar = ViewBattleLogBar(resolution)
+        self.update_rects.append(self.ele_log_bar.frame_rect)
 
         # 初始化按钮组 - 大招和item
         self.ele_buttons = ViewButtons(resolution)
-
+        self.update_rects.append(self.ele_buttons.final_spell_rect)
+        self.update_rects.append(self.ele_buttons.item_rect)
         # 注册按键
         self.mouse_right_start_time = None
         self.mouse_left_start_time = None
-
-        # 显示细节
-        self.view_context = dict()
-        self.update_rects: list[pygame.Rect] = []
 
         # 控制细节
         self.c_cast = CacheCast()
@@ -79,7 +80,12 @@ class BattleScene(AbstractScene):
         # io密集load image
         for ele in self.ele_battle_roles:
             ele.load_image()
+        self.ele_buttons.load_image(self.screen)
+        self.ele_info_bar.load_image(self.screen)
+        self.ele_log_bar.load_image(self.screen)
+        self.ele_reminder.load_image(self.screen)
 
+        self.update()
         # 结束
         ## 触发一次Battle_Start效果
         self.battle.battle_start()
@@ -98,19 +104,24 @@ class BattleScene(AbstractScene):
         new_queue = []
         # 找到自己队伍的排序
         for quid in caster_queue:
-            if quid >= 10 and self.battle.layout[quid].is_alive():
+            if quid >= 10 and (self.battle.is_dead_by_quid(quid) ^ True):
                 new_queue.append(quid)
         # 加载自己的队伍
         self.select_skill_tool.load_new_queue(new_queue)
         self.battle.on_ready_turn_start()  # 技能
+        self.next_select_skill()
 
     def switch_to_select_skill(self, caster_quid: int):
         """切换到选择技能的回合"""
         self.stage = EnumBattleStage.SELECT_SKILL
+        self.ele_reminder.update(
+            self.screen, str(self.battle.layout[caster_quid].name), "选择人物释放技能"
+        )
         # self.view_detail[""]
 
     def switch_to_select_target(self):
         self.stage = EnumBattleStage.SELECT_TARGET
+        self.ele_reminder.update(self.screen, "", "选择一个目标")
 
     def next_select_skill(self):
         # 这个select skill + select target结束，切换到下一个人物
@@ -118,7 +129,9 @@ class BattleScene(AbstractScene):
             self.switch_to_select_skill(caster_quid)
         else:
             # 否则进入默认施法阶段
-            self.switch_to_general_cast()
+            self.battle.wait_for_another()
+            self.stage = EnumBattleStage.WAIT_FOR_PLAYER
+            self.ele_reminder.update(self.screen, "", "等待对方")
 
     def switch_to_scroll_item(self):
         """选择物品"""
@@ -150,10 +163,14 @@ class BattleScene(AbstractScene):
 
     def switch_to_general_cast(self):
         # 默认施法阶段
+        self.stage = EnumBattleStage.GENERAL_CAST
+        self.ele_reminder.update(self.screen, "", "战斗回合进行中")
         self.battle.global_turn_start()
+        self.new_cast_display()
 
     def end_global_cast(self):
         """所有角色施法结束"""
+        self.battle.global_turn_end()
         self.on_new_select_turn()
         ...
 
@@ -161,8 +178,25 @@ class BattleScene(AbstractScene):
     cast associated
     """
 
-    def new_cast_display(self):
+    def next_cast(self, last_caster_quid):
+        self.c_cast.current_event_casted()
+        ## 判断游戏是否结束
+        if (t := self.battle.judge_battle_end()) != 0:
+            print(f"玩家{t}获得胜利")
+            self.end_scene(t)
+            return
+        self.end_scene(t)
+        self.battle.turn_end(last_caster_quid)  # 此角色回合结束
+        ## 判断游戏是否结束
+        if (t := self.battle.judge_battle_end()) != 0:
+            print(f"玩家{t}获得胜利")
+            self.end_scene(t)
+            return
+        self.end_scene(t)
 
+        self.new_cast_display()
+
+    def new_cast_display(self):
         ret_tuple = self.battle.get_role_cast()
         if ret_tuple is None:
             self.end_global_cast()
@@ -170,6 +204,7 @@ class BattleScene(AbstractScene):
 
         caster_quid, target_quid, castable_id, operation_type, mov_time = ret_tuple
         self.battle.turn_start(caster_quid)  # 此角色回合开始
+        self.c_cast.start_event(caster_quid)
         ## 判断游戏是否结束
 
         if (t := self.battle.judge_battle_end()) != 0:
@@ -200,23 +235,8 @@ class BattleScene(AbstractScene):
             self.update_rects += self.ele_reminder.update(
                 self.screen, f"{target_quid}受到远程攻击"
             )
-            self.battle.cast(*self.c_cast.get())
-
-        ## 判断游戏是否结束
-        if (t := self.battle.judge_battle_end()) != 0:
-            print(f"玩家{t}获得胜利")
-            self.end_scene(t)
-            return
-        self.end_scene(t)
-        self.battle.turn_end(caster_quid)  # 此角色回合结束
-        ## 判断游戏是否结束
-        if (t := self.battle.judge_battle_end()) != 0:
-            print(f"玩家{t}获得胜利")
-            self.end_scene(t)
-            return
-        self.end_scene(t)
-
-        self.battle.global_turn_end()
+            self.battle.cast(*self.c_cast.get(), method=PROJECTILE)
+            self.next_cast(self.c_cast.current_event_caster())
 
     """
     input
@@ -252,8 +272,8 @@ class BattleScene(AbstractScene):
                 ### select_target左键时的选择
                 self.mouse_target = mouse_target
                 if mouse_target is not None:
-                    self.ele_info_bar.reload_info(
-                        self.battle.layout[mouse_target].value_dict,
+                    self.ele_info_bar.reload_role_info(
+                        self.battle.layout[mouse_target],
                         self.battle.get_role_skills(mouse_target),
                     )
 
@@ -263,11 +283,31 @@ class BattleScene(AbstractScene):
                     self.mouse_left_start_time = pygame.time.get_ticks()  # 记录按下时刻
                     if self.stage == EnumBattleStage.READY_DEFENSE:
                         # 按下瞬间判断防御
-                        self.battle.cast(
-                            *self.c_cast.get(),
-                            is_qdef=self.judge_defense_successful(mouse_target),
+                        is_qdef = self.judge_defense_successful(mouse_target)
+                        caster_quid, target_quid, castable_id, operation_type = (
+                            self.c_cast.get()
                         )
+                        self.battle.cast(
+                            caster_quid,
+                            target_quid,
+                            castable_id,
+                            operation_type,
+                            is_qdef=is_qdef,
+                            method=MELEE,
+                        )
+                        if is_qdef:
+                            self.battle.cast(
+                                target_quid,
+                                caster_quid,
+                                self.battle.layout[target_quid].operation_dict.get(
+                                    EnumBattleEvent.ENUM_ON_QDEF, [0]
+                                )[0],
+                                EnumBattleEvent.ENUM_ON_QDEF,
+                                method=MELEE,
+                            )
                         self.reset_defense()
+                        self.mov_time.reset()
+                        self.next_cast(self.c_cast.current_event_caster())
                 elif event.button == 3:  # 右键
                     self.mouse_right_start_time = pygame.time.get_ticks()
 
@@ -417,20 +457,36 @@ class BattleScene(AbstractScene):
                 case EnumBattleStage.GENERAL_CAST | EnumBattleStage.READY_DEFENSE:
                     if self.mov_time.is_need_start_move(pygame.time.get_ticks()):
                         # 是否需要开始移动
+                        for role in self.ele_battle_roles:
+                            if role.quid == self.c_cast.target_quid:
+                                break
                         self.ele_battle_roles[self.c_cast.caster_quid].start_move(
-                            self.c_cast.target_quid,
+                            role,
                             self.mov_time.end_move_time - self.mov_time.start_move_time,
                             self.fps,
                         )
                     elif self.mov_time.is_delayed(pygame.time.get_ticks()):
                         # 防御失败
                         if self.c_cast.has_casted() is False:
-                            self.battle.cast(*self.c_cast.get(), is_qdef=False)
+                            self.battle.cast(
+                                *self.c_cast.get(), is_qdef=False, method=MELEE
+                            )
                             self.reset_defense()
+                            self.mov_time.reset()
+                            self.next_cast(self.c_cast.current_event_caster())
+        if self.stage == EnumBattleStage.WAIT_FOR_PLAYER:
+            if self.battle.sync_tool.is_ok():
+                self.battle.update_operation_skill_item()
+                self.switch_to_general_cast()
+            else:
+                self.battle.sync_tool.pull()
         return self.battle_status_code
 
     def update(self):
         """一些无法被直接link而update的放在这"""
+        # debug text
+        if (now_tick := pygame.time.get_ticks()) % 50 == 0:
+            self.ele_log_bar.add_logs(str(now_tick))
         # 角色
         for ele in self.ele_battle_roles:
             if ele.detail["is_move"] is True:
@@ -487,12 +543,20 @@ class BattleScene(AbstractScene):
         return super().update()
 
     def render(self):
-        pygame.display.update(self.update_rects)
-        self.update_rects.clear()
-        return super().render(self.screen, self.fps)
+        pygame.display.update()  # self.update_rects
+        for ele in self.ele_battle_roles:
+            ele.render()
+
+        self.ele_buttons.render()
+        self.ele_info_bar.render(self.screen)
+        self.ele_log_bar.render(self.screen)
+        self.ele_reminder.render(self.screen)
+        return super().render()
 
     def get_update_rects(self):
-        return self.update_rects
+        ret = self.update_rects
+        self.update_rects.clear()
+        return ret
 
     def end_scene(self, code):
         self.battle_status_code = code

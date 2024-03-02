@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from view.battle.battle_viewer import BattleViewer
 
 
 class AbstractViewElement(ABC):

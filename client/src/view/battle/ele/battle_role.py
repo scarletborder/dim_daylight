@@ -1,9 +1,8 @@
 import pygame
-from storage.myLite_data_base import MyLiteDataBase
-from src.view.battle.ele.battle_viewer import BattleViewer
+from src.storage.myLite_data_base import MyLiteDataBase
 from src.view.battle.ele.abstract_view_element import AbstractViewElement
 from src.view.battle.ele.bulk_icon import BulkIcon
-from model.battle.battle import Battle
+from src.model.battle.battle import Battle
 
 
 class ViewBattleRole(AbstractViewElement):
@@ -36,17 +35,17 @@ class ViewBattleRole(AbstractViewElement):
             ViewBattleRole.bar_delta_width = round(0.08 * resolution[0])
             ViewBattleRole.bar_delta_height = round(0.095 * resolution[1])
             ### 相邻列
-            ViewBattleRole.bar_near_width = round(0.15 * resolution[0])
+            ViewBattleRole.bar_near_width = round(0.12 * resolution[0])
             ViewBattleRole.bar_near_height = round(0.12 * resolution[1])
             ### 一些特殊的起始点(pos的下中点)
             # bar_quid0_pos = (round(0.3155 * resolution[0]), round(0.2520 * resolution[1]))
             # bar_quid10_pos = (round(0.6164 * resolution[0]), round(0.4726 * resolution[1]))
             ViewBattleRole.bar_quid0_pos = (
                 round(0.38 * resolution[0]),
-                round(0.20 * resolution[1]),
+                round(0.15 * resolution[1]),
             )
             ViewBattleRole.bar_quid10_pos = (
-                round(0.6164 * resolution[0]),
+                round(0.58 * resolution[0]),
                 round(0.46 * resolution[1]),
             )
 
@@ -84,6 +83,7 @@ class ViewBattleRole(AbstractViewElement):
             self.detail["flip"] = False
 
         ## 状态条左上顶点坐标
+        ### quid 越小， 越左下， x越小y越大
         self.top_x = (
             ViewBattleRole.bar_quid0_pos[0]
             - (ViewBattleRole.my_bar_width >> 1)
@@ -94,7 +94,7 @@ class ViewBattleRole(AbstractViewElement):
             - ViewBattleRole.my_bar_height
             + (quid % 5) * ViewBattleRole.bar_delta_height
         )
-        match (quid / 5):
+        match int(quid / 5):
             case 1:
                 self.top_x += ViewBattleRole.bar_near_width
                 self.top_y += ViewBattleRole.bar_near_height
@@ -148,18 +148,20 @@ class ViewBattleRole(AbstractViewElement):
         distance_y = target_view_role.top_y - self.top_y
 
         self.detail["is_move"] = True
-        self.detail["vx"] = distance_x / oneway_time / fps
-        self.detail["vy"] = distance_y / oneway_time / fps
-
-        self.detail["move_times"] = oneway_time * fps + 1
+        self.detail["move_times"] = oneway_time * fps
         self.detail["current_times"] = 0
+
+        self.detail["vx"] = distance_x / self.detail["move_times"]
+        self.detail["vy"] = distance_y / self.detail["move_times"]
+
+        self.detail["dx"] = 0
+        self.detail["dy"] = 0
+
+        self.detail["zheng"] = 1
 
     def reverse_move(self):
         """当单程移动结束 该往回移动"""
-        if self.detail is None:
-            return
-        self.detail["vx"] *= -1
-        self.detail["vy"] *= -1
+        self.detail["zheng"] = -1
 
     def end_move(self):
         self.detail["is_move"] = False
@@ -179,8 +181,24 @@ class ViewBattleRole(AbstractViewElement):
             old_role_rect = self.role_rect.copy()
             self.screen.blit(self.detail["old_bg_image"], old_role_rect)
             # 更新位置
-            self.role_rect.x += self.detail["vx"]
-            self.role_rect.y += self.detail["vy"]
+            self.detail["dx"] += self.detail["vx"]
+            self.detail["dy"] += self.detail["vy"]
+            mov_x = round(self.detail["dx"])
+            mov_y = round(self.detail["dy"])
+
+            self.role_rect.x += mov_x * self.detail["zheng"]
+            self.role_rect.y += mov_y * self.detail["zheng"]
+
+            self.detail["dx"] -= mov_x
+            self.detail["dy"] -= mov_y
+
+            self.detail["current_times"] += 1
+            if self.detail["current_times"] == self.detail["move_times"]:
+                if self.detail["zheng"] == -1:
+                    self.end_move()
+                else:
+                    self.reverse_move()
+
             # 更新遮掩区块
             self.detail["old_bg_image"] = self.screen.subsurface(self.role_rect).copy()
             # 计数

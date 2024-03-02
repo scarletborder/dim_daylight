@@ -6,7 +6,7 @@ class CacheCast:
         self.caster_quid = self.end_time = self.target_quid = self.castable_id = 0
 
         self.operation_type = EnumBattleEvent.ENUM_NULL
-
+        self.has_casted_flag = False
         pass
 
     def reset(
@@ -31,3 +31,15 @@ class CacheCast:
         """
         return self.has_casted_flag
         ...
+
+    def start_event(self, current_caster_quid):
+        self.current_caster_quid = current_caster_quid
+        ...
+
+    def current_event_caster(self):
+        return self.current_caster_quid
+
+    def current_event_casted(self):
+        """目标的释放法术结束了"""
+
+    def has_current_event_casted(self): ...

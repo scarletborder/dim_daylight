@@ -8,6 +8,8 @@ from src.constant.enum_modify_calculate import EnumModifyCalculate
 from src.constant.battle.enum_role_value import EnumRoleValue
 from src.utils.modify_calculate import modify_calculate
 
+from src.utils.battle.player_sync import PlayerSync
+
 
 class Battle:
     def __init__(
@@ -18,6 +20,7 @@ class Battle:
         player2_position: list[int],
         skill_dict: dict[int, Skill],
         item_dict: dict[int, tuple[Item, int]],
+        sync_tool: PlayerSync,
     ) -> None:
         """
         - *_position: int=quid list, [0,10) player1, [10,20) player2.数字表示站位0-4最左上.15-19最右下
@@ -44,6 +47,9 @@ class Battle:
         # 在每个role的回合中的event，发送可以按动的按钮给viewer
         ## player 1
         ## player 2
+
+        self.turn_times = 0
+        self.sync_tool = sync_tool
         pass
 
     # 出招
@@ -72,28 +78,34 @@ class Battle:
         castable_item.cast(caster_quid, target_quid, self)
 
         # caster 和 target的一些相关event listener触发
-        listener = caster_role.role_event_listener.get(operation_type, [])
-        new_listener = []
-        for listener_callback in listener:
-            del_flag = listener_callback.call(caster_quid, target_quid, self, **kwargs)
-            if del_flag is False:
-                new_listener.append(listener_callback)
-        if len(new_listener) == 0:
-            caster_role.role_event_listener.pop(operation_type)
-        else:
-            caster_role.role_event_listener[operation_type] = new_listener
+        listener = caster_role.role_event_listener.get(operation_type, None)
+        if listener is not None:
+            new_listener = []
+            for listener_callback in listener:
+                del_flag = listener_callback.call(
+                    caster_quid, target_quid, self, **kwargs
+                )
+                if del_flag is False:
+                    new_listener.append(listener_callback)
+            if len(new_listener) == 0:
+                caster_role.role_event_listener.pop(operation_type)
+            else:
+                caster_role.role_event_listener[operation_type] = new_listener
 
         reversed_operation_type = reverse_event(operation_type)
-        listener = target_role.role_event_listener.get(reversed_operation_type, [])
-        new_listener = []
-        for listener_callback in listener:
-            del_flag = listener_callback.call(caster_quid, target_quid, self, **kwargs)
-            if del_flag is False:
-                new_listener.append(listener_callback)
-        if len(new_listener) == 0:
-            target_role.role_event_listener.pop(reversed_operation_type)
-        else:
-            target_role.role_event_listener[reversed_operation_type] = new_listener
+        listener = target_role.role_event_listener.get(reversed_operation_type, None)
+        if listener is not None:
+            new_listener = []
+            for listener_callback in listener:
+                del_flag = listener_callback.call(
+                    caster_quid, target_quid, self, **kwargs
+                )
+                if del_flag is False:
+                    new_listener.append(listener_callback)
+            if len(new_listener) == 0:
+                target_role.role_event_listener.pop(reversed_operation_type)
+            else:
+                target_role.role_event_listener[reversed_operation_type] = new_listener
 
     # 场上信息
     ## 修改
@@ -112,18 +124,19 @@ class Battle:
             result_value = modify_calculate(origin_value, offset, calculate)
             target_role.set_value(value_type, result_value)
 
-            listener = target_role.role_value_listener.get(value_type, [])
-            new_listener = []
-            for listener_callback in listener:
-                del_flag = listener_callback.call(
-                    target_quid, origin_value, result_value, self, **kwargs
-                )
-                if del_flag is False:
-                    new_listener.append(listener_callback)
-            if len(new_listener) == 0:
-                target_role.role_value_listener.pop(value_type)
-            else:
-                target_role.role_value_listener[value_type] = new_listener
+            listener = target_role.role_value_listener.get(value_type, None)
+            if listener is not None:
+                new_listener = []
+                for listener_callback in listener:
+                    del_flag = listener_callback.call(
+                        target_quid, origin_value, result_value, self, **kwargs
+                    )
+                    if del_flag is False:
+                        new_listener.append(listener_callback)
+                if len(new_listener) == 0:
+                    target_role.role_value_listener.pop(value_type)
+                else:
+                    target_role.role_value_listener[value_type] = new_listener
 
     # def query_quid_value(self, quid: int, value_name: str):
     #     """被battle_role.query替代"""
@@ -141,6 +154,7 @@ class Battle:
     def on_ready_turn_start(self):
         # (caster_quid, skill_id, target_quid)
         self.quid_skill_and_item: list[tuple[int, int, EnumBattleEvent, int]] = []
+        self.turn_times += 1
         # self.quid_item: list[tuple[int, int, int]] = []
 
     ## select skill/item scroll + select target阶段
@@ -208,12 +222,85 @@ class Battle:
     # enum_event
     def battle_start(self): ...
     def battle_end(self): ...
-    def turn_start(self, caster_quid): ...
-    def turn_end(self, caster_quid): ...
+
+    def turn_start(self, caster_quid):
+        role = self.layout[caster_quid]
+        if role.is_dead() is False:
+            listener = role.role_event_listener.get(
+                EnumBattleEvent.ENUM_TURN_START, None
+            )
+            if listener is not None:
+                new_listener = []
+                for listener_callback in listener:
+                    del_flag = listener_callback.call(caster_quid, caster_quid, self)
+                    if del_flag is False:
+                        new_listener.append(listener_callback)
+                if len(new_listener) == 0:
+                    role.role_event_listener.pop(EnumBattleEvent.ENUM_TURN_START)
+                else:
+                    role.role_event_listener[EnumBattleEvent.ENUM_TURN_START] = (
+                        new_listener
+                    )
+
+    def turn_end(self, caster_quid):
+        role = self.layout[caster_quid]
+        if role.is_dead() is False:
+            listener = role.role_event_listener.get(EnumBattleEvent.ENUM_TURN_END, None)
+            if listener is not None:
+                new_listener = []
+                for listener_callback in listener:
+                    del_flag = listener_callback.call(caster_quid, caster_quid, self)
+                    if del_flag is False:
+                        new_listener.append(listener_callback)
+                if len(new_listener) == 0:
+                    role.role_event_listener.pop(EnumBattleEvent.ENUM_TURN_END)
+                else:
+                    role.role_event_listener[EnumBattleEvent.ENUM_TURN_END] = (
+                        new_listener
+                    )
+
     def global_turn_start(self):
         self.cast_ele_generator = self.get_role_cast_generator()
+        for quid, role in self.layout.items():
+            if role.is_dead() is False:
+                listener = role.role_event_listener.get(
+                    EnumBattleEvent.ENUM_GLOBAL_TURN_START, None
+                )
+                if listener is not None:
+                    new_listener = []
+                    for listener_callback in listener:
+                        del_flag = listener_callback.call(quid, quid, self)
+                        if del_flag is False:
+                            new_listener.append(listener_callback)
+                    if len(new_listener) == 0:
+                        role.role_event_listener.pop(
+                            EnumBattleEvent.ENUM_GLOBAL_TURN_START
+                        )
+                    else:
+                        role.role_event_listener[
+                            EnumBattleEvent.ENUM_GLOBAL_TURN_START
+                        ] = new_listener
 
-    def global_turn_end(self): ...
+    def global_turn_end(self):
+        for quid, role in self.layout.items():
+            if role.is_dead() is False:
+                listener = role.role_event_listener.get(
+                    EnumBattleEvent.ENUM_GLOBAL_TURN_END, None
+                )
+                if listener is not None:
+                    new_listener = []
+                    for listener_callback in listener:
+                        del_flag = listener_callback.call(quid, quid, self)
+                        if del_flag is False:
+                            new_listener.append(listener_callback)
+                    if len(new_listener) == 0:
+                        role.role_event_listener.pop(
+                            EnumBattleEvent.ENUM_GLOBAL_TURN_END
+                        )
+                    else:
+                        role.role_event_listener[
+                            EnumBattleEvent.ENUM_GLOBAL_TURN_END
+                        ] = new_listener
 
     ## 查询
     ### 属性查询
@@ -225,7 +312,9 @@ class Battle:
             reverse=True,
         )
 
-    def is_dead(self, quid):
+    def is_dead_by_quid(self, quid):
+        if quid not in self.layout:
+            return True
         return (
             self.layout[quid].query_current_value(EnumRoleValue.ENUM_HEALTH) or -1
         ) <= 0
@@ -239,12 +328,12 @@ class Battle:
             operation_type,
             target_quid,
         ) in self.quid_skill_and_item:
-            if self.is_dead(caster_quid):
+            if self.is_dead_by_quid(caster_quid):
                 continue
             # 释放法术
             ## 如果target已经死亡，则效果转移给任何一个target同阵营的目标
             flag = False
-            while self.is_dead(target_quid):
+            while self.is_dead_by_quid(target_quid):
                 if target_quid < 10:
                     if flag:
                         target_quid += 1
@@ -318,6 +407,9 @@ class Battle:
         t_list = self.layout[quid].operation_dict.get(EnumBattleEvent.ENUM_ON_FINAL)
         if t_list is not None:
             load_tlist(t_list)
+        t_list = self.layout[quid].operation_dict.get(EnumBattleEvent.ENUM_ON_QDEF)
+        if t_list is not None:
+            load_tlist(t_list)
 
         return ret
 
@@ -333,12 +425,12 @@ class Battle:
         flag = True
         tmp = 0
         while flag and tmp < 10:
-            flag &= self.is_dead(tmp)
+            flag &= self.is_dead_by_quid(tmp)
         if flag:
             return 2
         flag = True
         while flag and tmp < 20:
-            flag &= self.is_dead(tmp)
+            flag &= self.is_dead_by_quid(tmp)
         if flag:
             return 1
         return 0
@@ -356,3 +448,24 @@ class Battle:
             or 0,
             reverse=True,
         )
+
+        # 将防御技能放在最前面
+        in_range = [
+            x
+            for x in self.quid_skill_and_item
+            if x[2] == EnumBattleEvent.ENUM_ON_DEFENSE
+        ]
+        out_range = [
+            x
+            for x in self.quid_skill_and_item
+            if x[2] != EnumBattleEvent.ENUM_ON_DEFENSE
+        ]
+        self.quid_skill_and_item = in_range + out_range
+
+    def wait_for_another(self):
+        # wait another player or ai
+        self.sync_tool.push(self.quid_skill_and_item)
+        self.sync_tool.pull()
+
+    def update_operation_skill_item(self):
+        self.quid_skill_and_item += self.sync_tool.result()

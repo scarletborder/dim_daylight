@@ -1,12 +1,13 @@
 import pygame
-from storage.myLite_data_base import MyLiteDataBase
-from view.battle.battle_viewer import BattleViewer
+from src.storage.myLite_data_base import MyLiteDataBase
+from src.view.battle.ele.battle_viewer import BattleViewer
 from src.constant.battle.enum_role_value import EnumRoleValue
 from src.model.battle.skill import Skill
+from src.model.battle.battle_role import BattleRole
 from src.model.battle.item import Item
-from src.view.battle.abstract_view_element import AbstractViewElement
-from src.view.battle.bulk_icon import BulkIcon
-from model.battle.battle import Battle
+from src.view.battle.ele.abstract_view_element import AbstractViewElement
+from src.view.battle.ele.bulk_icon import BulkIcon
+from src.model.battle.battle import Battle
 from src.utils.view.text_span import render_text_within_rect
 
 
@@ -22,7 +23,7 @@ class ViewBattleInfoBar(AbstractViewElement):
         self.y = 0
 
         self.items = []
-        self.font = pygame.font.Font(None, 30)  # Default font and size
+        self.font = pygame.font.SysFont("SimSun", 30)  # Default font and size
         self.start_index = 0  # Index of the topmost item in the view
         self.end_index = 0  # 最下方的那个index
         self.item_heights = []  # Store the height of each item
@@ -35,25 +36,23 @@ class ViewBattleInfoBar(AbstractViewElement):
         self.old_bg_image = screen.subsurface(self.frame_rect).copy()
         pygame.draw.rect(screen, (255, 255, 255), self.frame_rect, 1)
 
-    def reload_info(
-        self, value_dict: dict[EnumRoleValue, int | None], skills: list[Skill]
-    ):
-        self.items = []
-        if (v := value_dict.get(EnumRoleValue.ENUM_HEALTH)) is not None:
+    def reload_role_info(self, role: BattleRole, skills: list[Skill]):
+        self.items = [role.name, role.description]
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_HEALTH)) is not None:
             self.items.append("HEALTH:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_MAGIC)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_MAGIC)) is not None:
             self.items.append("MAGIC:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_ENERGY)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_ENERGY)) is not None:
             self.items.append("ENERGY:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_ATTACK)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_ATTACK)) is not None:
             self.items.append("ATTACK:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_DEFENSE)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_DEFENSE)) is not None:
             self.items.append("DEFENSE:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_SPEED)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_SPEED)) is not None:
             self.items.append("SPEED:" + str(v) + "\n")
-        if (v := value_dict.get(EnumRoleValue.ENUM_ATTACK_SPEED)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_ATTACK_SPEED)) is not None:
             self.items.append("ATTACK_SPEED:" + str(v))
-        if (v := value_dict.get(EnumRoleValue.ENUM_DEFENSE_SPEED)) is not None:
+        if (v := role.value_dict.get(EnumRoleValue.ENUM_DEFENSE_SPEED)) is not None:
             self.items.append("DEFENSE_SPEED:" + str(v))
 
         self.items += [t_item.name + ":" + t_item.description for t_item in skills]
@@ -157,6 +156,9 @@ class ViewBattleInfoBar(AbstractViewElement):
             self.wrapped_texts.append(wrapped_text)
 
         total_height = 0
-        while total_height + self.item_heights[self.end_index] < self.height:
+        while (
+            self.end_index < len(self.item_heights)
+            and total_height + self.item_heights[self.end_index] < self.height
+        ):
             total_height += self.item_heights[self.end_index]
             self.end_index += 1

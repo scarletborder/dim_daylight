@@ -48,8 +48,16 @@ class BattleRole:
         self.role_event_listener: dict[EnumBattleEvent, list[RoleEventCallback]] = {}
         self.role_value_listener: dict[EnumRoleValue, list[RoleValueCallback]] = {}
 
+        self.is_defense = False
         self.context: dict = dict()  # str - any，场上附加的所有额外信息
         pass
+
+    # cast
+    def cast_active_defense(self):
+        self.is_defense = True
+
+    def cancel_active_defense(self):
+        self.is_defense = False
 
     # high interface
     def query_default_value(self, key: EnumRoleValue):
@@ -57,6 +65,9 @@ class BattleRole:
 
     def query_current_value(self, key: EnumRoleValue):
         return self.value_dict.get(key)
+
+    def is_dead(self):
+        return (self.query_current_value(EnumRoleValue.ENUM_HEALTH) or -1) <= 0
 
     # low interface
     def set_value(self, value_type: EnumRoleValue, result):
@@ -88,9 +99,11 @@ class BattleRole:
     # ): ...
 
     # query
-    def is_alive(self):
-        """以血量大于0决定是否存活"""
-        return (self.query_current_value(EnumRoleValue.ENUM_HEALTH) or 0) > 0
+
+    # @DeprecationWarning
+    # def is_alive(self):
+    #     """以血量大于0决定是否存活"""
+    #     return (self.query_current_value(EnumRoleValue.ENUM_HEALTH) or 0) > 0
 
     def is_affected_by_specified_buff(self, buff_id):
         return buff_id in self.buff_ids.keys()

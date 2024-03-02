@@ -18,5 +18,5 @@ class AbstractScene:
     def get_update_rects(self):
         return self.update_rects
 
-    def render(self, screen: pygame.Surface, fps: int):
+    def render(self):
         pass

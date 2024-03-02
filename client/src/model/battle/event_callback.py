@@ -1,7 +1,9 @@
 class RoleEventCallback:
     """各种event listener需要用到的callback，启用的方式是self.call"""
 
-    def __init__(self, callback_func, description_func, display_func=None) -> None:
+    def __init__(
+        self, callback_func, description_func, display_func=None, **kwargs
+    ) -> None:
         """
         - callback_func : 函数接受caster_quid,target_quid,Battle,context(dict),**kwargs(cast的参数)作为参数，返回bool表示是否删除这个listener
         - description_func : 接受context，返回字符串
@@ -16,10 +18,11 @@ class RoleEventCallback:
         self.display_func = display_func
         self.description_func = description_func
 
-        self.context = dict()
+        self.context = kwargs
         pass
 
     def call(self, caster_quid, target_quid, Battle, **kwargs):
+        """caster_quid永远是释放效果的人物，如荆棘be_attack的效果中，会对caster-quid反伤等"""
         if self.display_func is not None:
             self.display_func()
         return self.callback_func(
@@ -33,7 +36,9 @@ class RoleEventCallback:
 class RoleValueCallback:
     """各种value listener需要用到的callback，启用的方式是self.call"""
 
-    def __init__(self, callback_func, description_func, display_func=None) -> None:
+    def __init__(
+        self, callback_func, description_func, display_func=None, **kwargs
+    ) -> None:
         """
         - callback : 函数接受target_quid,original_value,result_value,Battle,context(dict),**kwargs(cast的参数)作为参数，
                     返回bool表示是否删除这个listener
@@ -44,7 +49,7 @@ class RoleValueCallback:
         self.callback_func = callback_func
         self.display_func = display_func
         self.description_func = description_func
-        self.context = dict()
+        self.context = kwargs
         pass
 
     def call(self, target_quid, original_value, result_value, Battle, **kwargs):
@@ -61,7 +66,9 @@ class RoleValueCallback:
 class GlobalEventCallback:
     """各种全局事件 listener需要用到的callback，启用的方式是self.call"""
 
-    def __init__(self, callback_func, description_func, display_func=None) -> None:
+    def __init__(
+        self, callback_func, description_func, display_func=None, **kwargs
+    ) -> None:
         """
         - callback : 函数接受Battle,context(dict),**kwargs(cast的参数)作为参数，
                     返回bool表示是否删除这个listener
@@ -71,7 +78,7 @@ class GlobalEventCallback:
         self.callback_func = callback_func
         self.display_func = display_func
         self.description_func = description_func
-        self.context = dict()
+        self.context = kwargs
         pass
 
     def call(self, Battle, **kwargs):

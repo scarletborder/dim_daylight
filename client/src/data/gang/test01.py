@@ -1,6 +1,6 @@
-from storage.main_db import Main_DB
+from src.storage.main_db import Main_DB
 import random
-from constant.battle.enum_role_value import EnumRoleValue
+from src.constant.battle.enum_role_value import EnumRoleValue
 
 
 def handle_func(role_id: int, role_info: dict):

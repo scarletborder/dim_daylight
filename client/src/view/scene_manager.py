@@ -20,7 +20,7 @@ class SceneManager:
 
     def render(self, screen, fps: int):
         if self.active_scene is not None:
-            self.active_scene.render(screen, fps)
+            self.active_scene.render()
 
     def get_update_rects(self):
         if self.active_scene is not None:

@@ -1,6 +1,6 @@
 import pygame
-from model.battle.battle import Battle
-from constant.battle.enum_battle_stage import EnumBattleStage
+from src.model.battle.battle import Battle
+from src.constant.battle.enum_battle_stage import EnumBattleStage
 
 
 class BattleViewer:
